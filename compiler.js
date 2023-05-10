@@ -20,8 +20,8 @@ if (worker_threads.isMainThread) {
 	// Create the TypedArray that the Atomics API needs.
 	const array = new Int32Array(buffer);
 
-	// The synchronous compile function.
-	exports.compile = (...args) => {
+	// The synchronous function that wraps the asynchronous function.
+	const run = (args) => {
 		// Pass the worker a message containing the arguments we want to call the asynchronous function with.
 		worker.postMessage(args);
 		// Sleep until the worker thread notifies us that it is complete.
@@ -31,7 +31,13 @@ if (worker_threads.isMainThread) {
 		if (message.error) {
 			throw message.value;
 		}
-		const response = message.value;
+		return message.value;
+	};
+
+	exports.VERSION = require('./package.json').version;
+
+	exports.compile = (...args) => {
+		const response = run(args);
 		const warning_strings = response._warning_strings;
 		delete response._warning_strings;
 		for (let i = 0; i < response.warnings.length; i++) {
@@ -40,10 +46,10 @@ if (worker_threads.isMainThread) {
 		return response;
 	};
 
-	exports.VERSION = require('./package.json').version;
-	// exports.compile = compile;
 	// exports.parse = parse;
+
 	exports.preprocess = (...args) => import('./compiler.mjs').then((m) => m.preprocess(...args));
+
 	// exports.walk = walk;
 } else {
 	// We are in the worker thread.
