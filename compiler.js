@@ -61,20 +61,17 @@ if (worker_threads.isMainThread) {
 	worker_threads.parentPort.on('message', async ({ cmd, args }) => {
 		let message;
 		try {
+			const compiler = await import('./compiler.mjs');
 			let result;
 			if (cmd === 'compile') {
-				// Call the compiler.
-				const { compile } = await import('./compiler.mjs');
-				result = compile(...args);
+				result = compiler.compile(...args);
 				result._warning_strings = [];
 				for (let i = 0; i < result.warnings.length; i++) {
 					result._warning_strings[i] = result.warnings[i].toString();
 					delete result.warnings[i].toString;
 				}
 			} else if (cmd === 'parse') {
-				// Call the parser.
-				const { parse } = await import('./compiler.mjs');
-				result = parse(...args);
+				result = compiler.parse(...args);
 			}
 			message = { error: false, value: result };
 		} catch (error) {
