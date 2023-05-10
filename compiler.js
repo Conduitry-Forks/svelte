@@ -1,4 +1,3 @@
-const fs = require('node:fs');
 const worker_threads = require('node:worker_threads');
 
 if (worker_threads.isMainThread) {
@@ -21,9 +20,9 @@ if (worker_threads.isMainThread) {
 	const array = new Int32Array(buffer);
 
 	// The synchronous function that wraps the asynchronous function.
-	const run = (args) => {
+	const run = (outgoing_message) => {
 		// Pass the worker a message containing the arguments we want to call the asynchronous function with.
-		worker.postMessage(args);
+		worker.postMessage(outgoing_message);
 		// Sleep until the worker thread notifies us that it is complete.
 		Atomics.wait(array, 0, 0);
 		// Synchronously read the response from the worker thread.
@@ -37,7 +36,7 @@ if (worker_threads.isMainThread) {
 	exports.VERSION = require('./package.json').version;
 
 	exports.compile = (...args) => {
-		const response = run(args);
+		const response = run({ cmd: 'compile', args });
 		const warning_strings = response._warning_strings;
 		delete response._warning_strings;
 		for (let i = 0; i < response.warnings.length; i++) {
@@ -46,7 +45,9 @@ if (worker_threads.isMainThread) {
 		return response;
 	};
 
-	// exports.parse = parse;
+	exports.parse = (...args) => {
+		return run({ cmd: 'parse', args });
+	};
 
 	exports.preprocess = (...args) => import('./compiler.mjs').then((m) => m.preprocess(...args));
 
@@ -57,16 +58,23 @@ if (worker_threads.isMainThread) {
 	// Create the TypedArray that the Atomics API needs.
 	const array = new Int32Array(worker_threads.workerData.buffer);
 	// Listen for a message containing the passed-in args.
-	worker_threads.parentPort.on('message', async (args) => {
-		// Call the compiler.
+	worker_threads.parentPort.on('message', async ({ cmd, args }) => {
 		let message;
 		try {
-			const { compile } = await import('./compiler.mjs');
-			const result = compile(...args);
-			result._warning_strings = [];
-			for (let i = 0; i < result.warnings.length; i++) {
-				result._warning_strings[i] = result.warnings[i].toString();
-				delete result.warnings[i].toString;
+			let result;
+			if (cmd === 'compile') {
+				// Call the compiler.
+				const { compile } = await import('./compiler.mjs');
+				result = compile(...args);
+				result._warning_strings = [];
+				for (let i = 0; i < result.warnings.length; i++) {
+					result._warning_strings[i] = result.warnings[i].toString();
+					delete result.warnings[i].toString;
+				}
+			} else if (cmd === 'parse') {
+				// Call the parser.
+				const { parse } = await import('./compiler.mjs');
+				result = parse(...args);
 			}
 			message = { error: false, value: result };
 		} catch (error) {
