@@ -36,6 +36,9 @@ if (worker_threads.isMainThread) {
 	exports.VERSION = require('./package.json').version;
 
 	exports.compile = (...args) => {
+		if (args[1]?.cssHash) {
+			throw new Error('cssHash is not supported in the CommonJS version of the compiler');
+		}
 		const response = run({ cmd: 'compile', args });
 		const warning_strings = response._warning_strings;
 		delete response._warning_strings;
@@ -51,7 +54,9 @@ if (worker_threads.isMainThread) {
 
 	exports.preprocess = (...args) => import('./compiler.mjs').then((m) => m.preprocess(...args));
 
-	// exports.walk = walk;
+	exports.walk = () => {
+		throw new Error('walk() is not supported in the CommonJS version of the compiler');
+	};
 } else {
 	// We are in the worker thread.
 
