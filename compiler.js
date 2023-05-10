@@ -29,7 +29,7 @@ if (worker_threads.isMainThread) {
 		// Synchronously read the response from the worker thread.
 		const { message } = worker_threads.receiveMessageOnPort(message_channel.port2);
 		if (message.error) {
-			throw message.value;
+			throw Object.assign(message.value, message.extra_fields);
 		}
 		return message.value;
 	};
@@ -70,7 +70,7 @@ if (worker_threads.isMainThread) {
 			}
 			message = { error: false, value: result };
 		} catch (error) {
-			message = { error: true, value: error };
+			message = { error: true, value: error, extra_fields: { ...error } };
 		}
 		// Post the response to the MessagePort of the MessageChannel created by the main thread.
 		worker_threads.workerData.port.postMessage(message);
